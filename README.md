@@ -56,6 +56,27 @@ level whose signal is trivial is omitted entirely, so a single-column page can d
 and a page with uniform layout can drop layout. Each token is a continuous vector rather than a
 discrete word, and decoding them reconstructs the detection, layout and reading-flow maps.
 
+## Repository Structure
+
+```
+train/src/training/
+├── covt_qwen3_vl.py       model wrapper: structural-token readout and anchor losses
+├── anchor_teachers.py     specialists (docTR DBNet, DocLayout-YOLO, LayoutReader) + L_str
+├── data.py                item preprocessing, adaptive <think> block, budget lookup
+├── constants.py           special tokens and chat markers
+├── rl_reward.py           R_acc / R_fmt / R_bud / R_align
+├── rl_trainer.py          GRPO loop (sampling, group-relative advantage, KL)
+├── train.py               SFT entry point
+├── train_rl.py            GRPO entry point
+├── trainer.py             trainer + step-sync / unfreeze callbacks
+└── params.py              model, data and training arguments
+train/src/                 merge_lora_weights.py, utils.py
+train/scripts/             run_sft.sh, run_rl.sh, check_forward.py, zero2.json
+eval/                      per-benchmark inference scripts and metrics
+tool/                      budget cache construction and budget table generation
+gradio/demo.py             interactive demo
+```
+
 ## Installation
 
 ```bash
@@ -196,27 +217,6 @@ python eval/run_cord_doc_covt.py
 
 ```bash
 MODEL_PATH=<merged_checkpoint> python gradio/demo.py
-```
-
-## Repository Layout
-
-```
-train/src/training/
-├── covt_qwen3_vl.py       model wrapper: structural-token readout and anchor losses
-├── anchor_teachers.py     specialists (docTR DBNet, DocLayout-YOLO, LayoutReader) + L_str
-├── data.py                item preprocessing, adaptive <think> block, budget lookup
-├── constants.py           special tokens, indexed slots, chat markers
-├── rl_reward.py           R_acc / R_fmt / R_bud / R_align
-├── rl_trainer.py          GRPO loop (sampling, group-relative advantage, KL)
-├── train.py               SFT entry point
-├── train_rl.py            GRPO entry point
-├── trainer.py             trainer + step-sync / unfreeze callbacks
-└── params.py              model, data and training arguments
-train/src/                 merge_lora_weights.py, utils.py
-train/scripts/             run_sft.sh, run_rl.sh, check_forward.py, zero2.json
-eval/                      per-benchmark inference scripts and metrics
-tool/                      budget cache construction and budget table generation
-gradio/demo.py             interactive demo
 ```
 
 ## Main Results
