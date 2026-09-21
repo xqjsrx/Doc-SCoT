@@ -1,6 +1,4 @@
-# Doc-SCoT
-
-**Adaptive Hierarchical Structural Tokens for Document Image Understanding**
+# Doc-SCoT: Adaptive Hierarchical Structural Tokens for Document Image Understanding
 
 Document image understanding requires modeling structure at multiple levels — local text
 boundaries, regional layout and global reading flow — but existing VLMs either encode it
