@@ -242,7 +242,7 @@ information that such input alone does not provide.
             Document Image Understanding},
   author = {Qian, Wentao and Zheng, Xiaohan and Zhuang, Liansheng},
   note   = {Manuscript under review},
-  year   = {2027}
+  year   = {2026}
 }
 ```
 
