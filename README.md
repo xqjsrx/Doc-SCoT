@@ -40,19 +40,21 @@ document VQA and VIE benchmarks, Doc-SCoT improves over its Qwen3-VL backbone an
 both OCR-free and OCR-based methods.
 
 The structural tokens and the answer come out in one autoregressive stream, so the allocation the
-model chose is visible in the output. For a receipt with a simple layout:
+model chose is visible in the output:
 
 ```
 <think>
 Text regions: <|det_pad|><|det_pad|><|det_pad|><|det_pad|>
 Layout structure: <|layout_pad|><|layout_pad|>
+Reading flow: <|flow_pad|><|flow_pad|>
 </think>
 <answer> 12.50 </answer>
 ```
 
-Detection takes four tokens and layout two, while reading flow is absent (`k = 0`) because the
-page has no vertical wrap. Each token is a continuous vector rather than a discrete word, and
-decoding them reconstructs the detection, layout and reading-flow maps.
+Here detection takes four tokens, layout two and reading flow two. The counts are per document: a
+level whose signal is trivial is omitted entirely, so a single-column page can drop reading flow
+and a page with uniform layout can drop layout. Each token is a continuous vector rather than a
+discrete word, and decoding them reconstructs the detection, layout and reading-flow maps.
 
 ## Installation
 
@@ -117,10 +119,6 @@ token count tracks how much it has to express and a level with a trivial signal 
 python tool/build_dataset_cache.py --data-path <data.json> --image-folder <images/> --out <teacher_cache/>
 python tool/build_anchor_budget.py --cache-dir <teacher_cache/> --out <anchor_budget.json>
 ```
-
-Setting `ANCHOR_INDEXED_TOKENS=1` switches a level from repeating one pad token `k` times to
-distinct per-slot tokens `<|det_1|>…<|det_8|>`, which makes the count explicit rather than
-something the model has to track implicitly.
 
 ## Training
 
