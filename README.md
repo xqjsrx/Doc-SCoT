@@ -51,26 +51,6 @@ The code targets `transformers` 5.x (`Qwen3VLForConditionalGeneration`) together
 2.5.1. That pairing has a known `torch.load` compatibility conflict, which `train.py` works
 around since it only ever reloads this project's own resume checkpoints.
 
-Paths are resolved from environment variables; the defaults point at a local layout, so
-override them for your machine:
-
-```bash
-export MODEL_ID=/path/to/Qwen3-VL-8B-Instruct
-export LAYOUTREADER_MODEL_PATH=/path/to/layoutreader
-export LAYOUT_MODEL_PATH=/path/to/doclayout_yolo_docstructbench.pt
-```
-
-## Model Preparation
-
-| Variable | Default | Role |
-|---|---|---|
-| `MODEL_ID` | `Qwen/Qwen3-VL-8B-Instruct` | backbone VLM |
-| `LAYOUTREADER_MODEL_PATH` | `hfl/layoutreader` | reading-flow specialist |
-| `LAYOUT_MODEL_PATH` | DocLayout-YOLO DocStructBench weights | layout specialist |
-
-The two specialist checkpoints act as teachers and are needed only for training, never at
-inference. DBNet comes from `python-doctr` and needs no local file.
-
 ## Dataset Preparation
 
 We use seven public benchmarks: four for visual information extraction — **CORD**,
@@ -105,6 +85,8 @@ Each `data.json` is a JSON list. One item:
   answer is stored plain, without `<think>` or `<answer>` tags; those are added at training
   time.
 
+### Token budget
+
 The per-image token budget is read from the JSON file named by `ANCHOR_BUDGET_FILE`, which
 maps an image basename to the number of tokens each level should emit:
 
@@ -113,11 +95,21 @@ maps an image basename to the number of tokens each level should emit:
 ```
 
 When the variable is unset, or an image is absent from the table, every level falls back to a
-fixed 4/4/4. Setting `ANCHOR_INDEXED_TOKENS=1` switches a level from repeating one pad token
-`k` times to distinct per-slot tokens `<|det_1|>…<|det_8|>`, which makes the count explicit
-rather than something the model has to track implicitly.
+fixed 4/4/4. The table is built offline from the specialist signals, so that each level's
+token count tracks how much it has to express and a level with a trivial signal disappears:
 
-## Quickstart
+```bash
+python tool/build_dataset_cache.py --data-path <data.json> --image-folder <images/> --out <teacher_cache/>
+python tool/build_anchor_budget.py --cache-dir <teacher_cache/> --out <anchor_budget.json>
+```
+
+Setting `ANCHOR_INDEXED_TOKENS=1` switches a level from repeating one pad token `k` times to
+distinct per-slot tokens `<|det_1|>…<|det_8|>`, which makes the count explicit rather than
+something the model has to track implicitly.
+
+## Training
+
+Training is a two-stage chain: the output of stage 1 is the input of stage 2.
 
 ### 1. Structure Alignment SFT
 
@@ -128,7 +120,8 @@ bash train/scripts/run_sft.sh
 
 Useful flags: `--stage_1_steps` (length of the initial alignment phase, in optimizer steps)
 and `--visual_weight_start` / `--visual_weight_end` / `--linear_visual_weight_decay`, which
-schedule `λ(t)`, the weight of `L_str`.
+schedule `λ(t)`, the weight of `L_str`. Specialists are expensive, so their features can be
+precomputed into `--teacher_cache_dir`; on a miss the code falls back to online inference.
 
 ### 2. Budget Allocation GRPO
 
@@ -140,7 +133,35 @@ SFT_MODEL=<run_dir>/lora_merged bash train/scripts/run_rl.sh
 equilibrium is the budget an image actually needs: with `--w_token` alone the optimal policy
 is to emit nothing and the budget collapses to zero.
 
-### 3. Evaluation
+## Quickstart
+
+Paths are resolved from environment variables; the defaults point at a local layout, so
+override them for your machine:
+
+| Variable | Default | Role |
+|---|---|---|
+| `MODEL_ID` | `Qwen/Qwen3-VL-8B-Instruct` | backbone VLM |
+| `LAYOUTREADER_MODEL_PATH` | `hfl/layoutreader` | reading-flow specialist |
+| `LAYOUT_MODEL_PATH` | DocLayout-YOLO DocStructBench weights | layout specialist |
+
+The two specialists act as teachers and are needed only for training, never at inference.
+DBNet comes from `python-doctr` and needs no local file.
+
+### 0. Smoke test
+
+Verifies the whole structural-token path on one image: loads the backbone, injects the three
+anchors, runs a forward pass that includes all three branch reconstruction losses,
+backpropagates, and generates. It asserts that the total loss and the reconstruction loss are
+finite and that a finite gradient reaches every branch projection head, so run it before
+adapting the code to a new backbone:
+
+```bash
+TEST_IMAGE=/path/to/doc.png python train/scripts/check_forward.py
+```
+
+Add `--fwd-only` to skip the backward pass and generation on a small GPU.
+
+### 1. Evaluation
 
 Metrics read a predictions file and a ground-truth file:
 
@@ -158,26 +179,11 @@ EVAL_OUTPUT_BASE=<result_dir> \
 python eval/run_cord_doc_covt.py
 ```
 
-### 4. Demo
+### 2. Demo
 
 ```bash
 MODEL_PATH=<merged_checkpoint> python gradio/demo.py
 ```
-
-## Verifying the Forward Pass
-
-`train/scripts/check_forward.py` loads the backbone, injects the three structural-token
-anchors, runs a forward pass that includes all three branch reconstruction losses,
-backpropagates, and generates. It asserts that the total loss and the reconstruction loss are
-finite and that a finite gradient reaches every branch projection head, so run it before
-adapting the code to a new backbone:
-
-```bash
-MODEL_ID=Qwen/Qwen3-VL-8B-Instruct TEST_IMAGE=/path/to/doc.png \
-    python train/scripts/check_forward.py
-```
-
-Add `--fwd-only` to skip the backward pass and generation on a small GPU.
 
 ## Repository Layout
 
