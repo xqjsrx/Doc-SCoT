@@ -229,11 +229,6 @@ Against OCR-based methods, which receive ground-truth OCR text and coordinates:
 | CORD | F1 | 79.4 | **96.3** |
 | SROIE | F1 | 84.4 | **95.7** |
 
-Two observations: the advantage is not uniform — DocLayLLM stays ahead on FUNSD, where its
-ground-truth OCR input is most helpful — and Doc-SCoT remains competitive without any OCR
-text or coordinates, which is consistent with the structural tokens recovering layout
-information that such input alone does not provide.
-
 ## Citation
 
 ```bibtex
