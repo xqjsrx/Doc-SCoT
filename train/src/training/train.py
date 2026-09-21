@@ -211,7 +211,7 @@ def train():
 
     model.config.use_cache = False
     model_to_configure = model
-    # 保留 PEFT 包装前的 CoVT 模型引用，供 StepSyncCallback 直接写 global_steps
+    # 保留 PEFT 包装前的 Doc-SCoT 模型引用，供 StepSyncCallback 直接写 global_steps
     covt_model = model
     configure_llm(model_to_configure, training_args)
     if "Qwen" in model_args.model_id:

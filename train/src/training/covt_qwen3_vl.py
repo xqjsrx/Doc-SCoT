@@ -1,8 +1,8 @@
-"""CoVT on Qwen3-VL: 薄包装方案。
+"""Doc-SCoT on Qwen3-VL: 薄包装方案。
 
 直接继承 HF transformers 5.x 的 Qwen3VLForConditionalGeneration，图像注入 / deepstack /
 interleaved mrope / KV cache / prepare_inputs_for_generation 全部复用父类实现，
-本文件只负责 CoVT 特有部分：det/layout/flow 视觉思维 token 的提取、解码与 anchor loss。
+本文件只负责 Doc-SCoT 特有部分：det/layout/flow 视觉思维 token 的提取、解码与 anchor loss。
 
 teacher 侧（AnchorModels/AnchorLoss）与底座无关，见 training/anchor_teachers.py。
 """

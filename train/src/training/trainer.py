@@ -343,7 +343,7 @@ class StepSyncCallback(TrainerCallback):
     （mid-epoch resume 时 Trainer 的 skip_first_batches 仍会迭代数据集，位置计数保持一致）。
     """
     def __init__(self, covt_model, train_dataset):
-        # 注意：这里持有的是 PEFT 包装前的 CoVT 模型引用，
+        # 注意：这里持有的是 PEFT 包装前的 Doc-SCoT 模型引用，
         # 直接设属性避免写到 PeftModel 包装层上
         self.covt_model = covt_model
         self.train_dataset = train_dataset

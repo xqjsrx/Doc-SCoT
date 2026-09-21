@@ -325,7 +325,7 @@ class GRPOTrainer:
     def compute_log_probs(self, model, full_ids, prompt_len, inputs, image_files=None,
                           no_grad=False):
         """
-        用 CoVT 原始 forward 计算逐 token log_prob 和纯视觉对齐 loss
+        用 Doc-SCoT 原始 forward 计算逐 token log_prob 和纯视觉对齐 loss
         Returns: (answer_token_log_probs [T], visual_loss)
             answer_token_log_probs: answer_only_grad=True 时仅 <answer> 之后的 token;
                                     否则为全部生成 token。供 k3 KL 与策略梯度共用
