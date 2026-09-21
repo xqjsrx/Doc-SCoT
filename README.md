@@ -59,22 +59,17 @@ discrete word, and decoding them reconstructs the detection, layout and reading-
 ## Repository Structure
 
 ```
-train/src/training/
-├── covt_qwen3_vl.py       model wrapper: structural-token readout and anchor losses
-├── anchor_teachers.py     specialists (docTR DBNet, DocLayout-YOLO, LayoutReader) + L_str
-├── data.py                item preprocessing, adaptive <think> block, budget lookup
-├── constants.py           special tokens and chat markers
-├── rl_reward.py           R_acc / R_fmt / R_bud / R_align
-├── rl_trainer.py          GRPO loop (sampling, group-relative advantage, KL)
-├── train.py               SFT entry point
-├── train_rl.py            GRPO entry point
-├── trainer.py             trainer + step-sync / unfreeze callbacks
-└── params.py              model, data and training arguments
-train/src/                 merge_lora_weights.py, utils.py
-train/scripts/             run_sft.sh, run_rl.sh, check_forward.py, zero2.json
-eval/                      per-benchmark inference scripts and metrics
-tool/                      budget cache construction and budget table generation
-gradio/demo.py             interactive demo
+Doc-SCoT/
+├── train/
+│   ├── scripts/            # Entry points: run_sft.sh, run_rl.sh, check_forward.py
+│   └── src/training/       # Structural-token model, specialists, data, SFT, GRPO
+├── eval/                   # Per-benchmark inference scripts and metrics
+├── tool/                   # Teacher cache and token-budget table construction
+├── gradio/                 # Interactive demo
+├── assets/                 # Figures
+├── requirements.txt
+├── LICENSE
+└── README.md
 ```
 
 ## Installation
