@@ -118,7 +118,7 @@ $PY_BIN/deepspeed \
     --save_total_limit 2 \
     --dataloader_num_workers 4 \
     --report_to wandb \
-    --run_name "doc_covt3_${RUN_TAG}" \
+    --run_name "doc_scot_${RUN_TAG}" \
     --anchor_model_id "$VISUAL_MODEL_ID" \
     --training_stage "full" \
     --stage_1_steps $STAGE_1_STEPS \
