@@ -130,38 +130,14 @@ specialists — same thing.)
 
 DBNet comes from `python-doctr` and needs no local file.
 
-## Data
-
-### Composition
-
-Training uses seven public benchmarks, four for visual information extraction (VIE) and three for
-document VQA:
-
-| Benchmark | Task | Samples (raw) | Oversampling | Samples (mixed) |
-|-----------|------|---------------|--------------|-----------------|
-| CORD | VIE | 8,185 | x5 | ~40k |
-| SROIE | VIE | 2,503 | x16 | ~40k |
-| FUNSD | VIE | 2,375 | x17 | ~40k |
-| POIE | VIE | 21,039 | x2 | ~42k |
-| DocVQA | VQA | 39,463 | x1 | ~39k |
-| InfographicVQA | VQA | 23,946 | x2 | ~46k |
-| VisualMRC | VQA | 21,015 | x2 | ~42k |
-
-The seven pools are oversampled to a comparable size and then shuffled into a single mixture of
-roughly 293k samples.
-
-The scripts that convert each benchmark's raw annotations into this format, and the mixing script,
-are **not included in this release**. Only the tools that consume the prepared data are published
-(`tool/build_dataset_cache.py`, `tool/build_anchor_budget.py`).
-
-### Item format
+## Data format
 
 Each dataset is a single JSON list. One item:
 
 ```json
 {
-  "id": "receipt_001_0",
-  "image": "receipt_001.png",
+  "id": "receipt_00000_0",
+  "image": "images/receipt_00000.png",
   "conversations": [
     {"from": "human", "value": "<image>\nWhat is the \"total price\" in the given receipt?"},
     {"from": "gpt",   "value": "12.50"}
@@ -169,23 +145,9 @@ Each dataset is a single JSON list. One item:
 }
 ```
 
-The answer is stored **plain**, without `<think>` or `<answer>` tags. Those are added at training
-time: `data.py` wraps the answer as
-
-```
-<think>
-Text regions: <|det_pad|>...
-Layout structure: <|layout_pad|>...
-Reading flow: <|flow_pad|>...
-</think>
-<answer> 12.50 </answer>
-```
-
-with the levels and their token counts taken from the per-image budget. Stage 1 instead discards
-the question and trains on the structural block alone.
-
 `image` may be an absolute path or a bare filename; a bare name is resolved against the
-`--image_folder` argument when the path does not exist as given.
+`--image_folder` argument. The answer is stored plain, without `<think>` or `<answer>` tags; those
+are added at training time.
 
 ### Adaptive budget table
 
