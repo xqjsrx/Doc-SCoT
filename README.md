@@ -1,5 +1,7 @@
 # Doc-SCoT: Adaptive Hierarchical Structural Tokens for Document Image Understanding
 
+This repository contains the code of our method Doc-SCoT.
+
 Document image understanding requires modeling structure at multiple levels — local text
 boundaries, regional layout and global reading flow — but existing VLMs either encode it
 implicitly in visual features or serialize it into discrete text and coordinates, and they
