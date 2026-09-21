@@ -1,115 +1,43 @@
-# Doc-SCoT: Adaptive Hierarchical Structural Tokens for Document Image Understanding
+# Doc-SCoT
 
-> **Status:** Manuscript under review.
+**Adaptive Hierarchical Structural Tokens for Document Image Understanding**
 
-Implementation of **Doc-SCoT**. Document image understanding requires modeling
-structure at multiple levels — local text boundaries, regional layout, and global reading flow.
-Existing VLMs encode these implicitly, or serialize them into discrete text and coordinates,
-which degrades structural information and applies the *same* computation to every document
-regardless of complexity.
-
-Doc-SCoT instead represents structure with **continuous structural tokens of adaptive length**,
-interleaved with autoregressive reasoning.
+Document image understanding requires modeling structure at multiple levels — local text
+boundaries, regional layout and global reading flow — but existing VLMs either encode it
+implicitly in visual features or serialize it into discrete text and coordinates, and they
+spend the same computation on every document regardless of its complexity. Doc-SCoT instead
+represents structure with **continuous structural tokens of adaptive length**, interleaved
+with autoregressive reasoning.
 
 ![Framework](assets/framework.png)
 
-## Method
+Given a document image and a question, Doc-SCoT
 
-Given a document image `I` and a question `Q`, Doc-SCoT autoregressively generates a structural
-sequence `S` followed by answer tokens `A`:
+1. **Hierarchical Structural Token Grounding** — detection tokens encode local text
+   boundaries, layout tokens represent regional elements and their organization, and
+   reading-flow tokens capture sequential relations among regions. A bank of `m = 4`
+   learnable queries reads each branch's variable-length hidden states into fixed-size
+   readout vectors `Z_s = MHA(Q_s, H̄_s, H̄_s)`, which act as dynamic kernels over the
+   branch's frozen specialist feature map,
+   `M̂_s = σ((1/m) Σ_r ρ_s(z_{s,r} F_s))`. Specialists: docTR DBNet supervised by MSE on its
+   probability map, DocLayout-YOLO by MSE + L1 on its semantic raster, and LayoutReader by
+   pairwise ranking plus a region-mask loss;
+2. **Structure Alignment SFT** — grounds these tokens by reconstructing the specialists'
+   dense signals, `L_SFT = L_CE + λ(t)·L_str` with `λ(t)` decaying linearly so the emphasis
+   shifts from structural grounding to language generation. Each level takes `k ∈ {0,2,4,6}`
+   tokens derived per image from its own signal size — detected words, layout blocks,
+   vertical reading-order wraps — and a level whose signal is trivial is omitted entirely
+   (`k = 0`); the total is capped at 18;
+3. **Budget Allocation GRPO** — starting from the SFT model with the forced structural prefix
+   removed, optimizes `R = λ₁R_acc + λ₂R_fmt + λ₃R_bud + λ₄R_align` under the group-relative
+   advantage, so the model learns *when* each level is useful and *how much capacity* it
+   needs. `R_bud = -N_vis/N_cap` penalizes unnecessary tokens, while `R_align = -L_str`
+   prevents suppressing structurally necessary branches, since an omitted branch is still
+   decoded from its query prior and incurs the reconstruction error.
 
-```
-S = T_d^(1:k_d) || T_l^(1:k_l) || T_f^(1:k_f)
-p_theta(S, A | I, Q) = prod_t p_theta(y_t | I, Q, y_<t)
-```
-
-`T_d`, `T_l`, `T_f` are detection, layout, and reading-flow tokens, and `k_d, k_l, k_f` their
-input-dependent budgets. A branch is omitted when its budget is zero. `S` is enclosed by
-`<think>` tags and precedes `A`, enclosed by `<answer>` tags, so its continuous hidden states
-condition answer generation directly.
-
-### Hierarchical Structural Token Grounding
-
-The three token types describe structure at increasing spatial scope: detection tokens encode
-local text boundaries, layout tokens represent regional elements and their organization, and
-reading-flow tokens capture sequential relations among regions. They are generated in a
-local-to-global order and jointly condition the answer.
-
-Each branch is grounded on a document specialist — docTR DBNet for text regions, DocLayout-YOLO
-for layout elements, and LayoutReader for reading flow:
-
-| Branch   | Level                   | Specialist                        | Reconstructed map |
-|----------|-------------------------|-----------------------------------|-------------------|
-| `det`    | local text boundaries   | docTR DBNet (probability map)     | MSE               |
-| `layout` | regional layout         | DocLayout-YOLO (semantic raster)  | MSE + L1          |
-| `flow`   | reading flow            | LayoutReader (ordered regions)    | pairwise ranking + region-mask |
-
-A bank of `m = 4` learnable queries aggregates each branch's variable-length hidden states into
-fixed-size readout vectors, which act as dynamic kernels over the branch's frozen specialist
-feature map:
-
-```
-H_bar_s = Norm(H_s W_s)
-Z_s     = MHA(Q_s, H_bar_s, H_bar_s)
-M_hat_s = sigmoid( (1/m) * sum_r rho_s(z_{s,r} F_s) )
-```
-
-The readout is instantiated per branch with its own parameters; the same design supports variable
-budgets.
-
-![Projection module](assets/project_module.png)
-
-### Structure Alignment SFT
-
-Structure Alignment SFT progressively balances structural grounding and language generation:
-
-```
-L_SFT = L_CE + lambda(t) * L_str,    L_str = L_det + L_layout + L_flow
-```
-
-`lambda(t)` starts large and decays linearly with training steps, shifting the emphasis from
-structural grounding to language generation. Because each branch decodes its tokens back to the
-specialist signal, answer generation is conditioned on this grounded structure.
-
-The token budget of each level is derived per image from three structural signals: detected
-words, layout blocks, and vertical reading-order wraps. Each level takes `k_d, k_l, k_f` in
-`{0, 2, 4, 6}` tokens according to its signal size, and a level whose signal is trivial is
-omitted entirely (`k = 0`). The total is capped at `18`, and each image is supervised at its own
-budget. A single-column receipt can therefore drop the reading-flow level entirely.
-
-### Budget Allocation GRPO
-
-SFT supplies a structured allocation prior but does not directly optimize the quality–cost
-trade-off. Starting from the SFT model, the forced structural prefix is removed and GRPO is
-applied over complete sampled responses; each rollout decides whether a branch is present and how
-many tokens it emits. The reward is
-
-```
-R = lambda_1 R_acc + lambda_2 R_fmt + lambda_3 R_bud + lambda_4 R_align
-```
-
-- `R_acc` — answer correctness.
-- `R_fmt` — output-format validity: well-formed `<answer>` tags and a syntactically valid
-  structural sequence.
-- `R_bud = -N_vis / N_cap` — penalizes unnecessary structural tokens.
-- `R_align = -L_str` — prevents suppressing structurally necessary branches, since an omitted
-  branch is still decoded from its learnable query prior and incurs the corresponding
-  reconstruction error.
-
-For `G` sampled responses, the group-relative advantage is `A_hat_i = R_i - (1/G) sum_j R_j`, and
-the policy is optimized as
-
-```
-L_GRPO = -(1/G) sum_i A_hat_i log p_theta(Y_i | I, Q) + beta * KL(pi_theta || pi_ref)
-```
-
-with `pi_ref` the frozen SFT policy. No cross-entropy or separate structural auxiliary loss is
-added during GRPO; `L_str` enters optimization only through the reward above. SFT learns what the
-structural tokens represent, whereas GRPO learns when each level is useful and how much capacity
-it requires.
-
-At inference **no specialist is needed**: the model emits its own structural tokens and answers
-the question. Dense predictions can optionally be decoded for interpretability.
+The result: on seven document VQA and VIE benchmarks, Doc-SCoT improves over its Qwen3-VL
+backbone and outperforms both OCR-free and OCR-based methods, while no specialist is needed
+at inference.
 
 ## Installation
 
@@ -119,20 +47,46 @@ conda activate doc-scot
 pip install -r requirements.txt
 ```
 
-Base model: `Qwen/Qwen3-VL-8B-Instruct` (set `MODEL_ID`).
+The code targets `transformers` 5.x (`Qwen3VLForConditionalGeneration`) together with PyTorch
+2.5.1. That pairing has a known `torch.load` compatibility conflict, which `train.py` works
+around since it only ever reloads this project's own resume checkpoints.
 
-Two external checkpoints act as **specialists** and are needed only during training, never at
-inference. (The code and CLI flags call them `teacher` / `anchor`; the paper calls them
-specialists — same thing.)
+Paths are resolved from environment variables; the defaults point at a local layout, so
+override them for your machine:
 
-- **LayoutReader** — reading flow. Set `LAYOUTREADER_MODEL_PATH`.
-- **DocLayout-YOLO (DocStructBench)** — layout elements. Set `LAYOUT_MODEL_PATH`.
+```bash
+export MODEL_ID=/path/to/Qwen3-VL-8B-Instruct
+export LAYOUTREADER_MODEL_PATH=/path/to/layoutreader
+export LAYOUT_MODEL_PATH=/path/to/doclayout_yolo_docstructbench.pt
+```
 
-DBNet comes from `python-doctr` and needs no local file.
+## Model Preparation
 
-## Data format
+| Variable | Default | Role |
+|---|---|---|
+| `MODEL_ID` | `Qwen/Qwen3-VL-8B-Instruct` | backbone VLM |
+| `LAYOUTREADER_MODEL_PATH` | `hfl/layoutreader` | reading-flow specialist |
+| `LAYOUT_MODEL_PATH` | DocLayout-YOLO DocStructBench weights | layout specialist |
 
-Each dataset is a single JSON list. One item:
+The two specialist checkpoints act as teachers and are needed only for training, never at
+inference. DBNet comes from `python-doctr` and needs no local file.
+
+## Dataset Preparation
+
+We use seven public benchmarks: four for visual information extraction — **CORD**,
+**SROIE**, **FUNSD**, **POIE** — and three for document VQA — **DocVQA**,
+**InfographicVQA**, **VisualMRC**. Each dataset is subject to its own license; please
+download it from the official source.
+
+Place them under the unified convention:
+
+```
+dataset/{cord,sroie,funsd,poie,docvqa,infovqa,visualmrc}/
+├── data.json
+└── images/
+```
+
+Each `data.json` is a JSON list. One item:
 
 ```json
 {
@@ -145,84 +99,56 @@ Each dataset is a single JSON list. One item:
 }
 ```
 
-`image` may be an absolute path or a bare filename; a bare name is resolved against the
-`--image_folder` argument. The answer is stored plain, without `<think>` or `<answer>` tags; those
-are added at training time.
+* `image` may be an absolute path or a bare filename; a bare name is resolved against the
+  `--image_folder` argument.
+* `conversations` carries the question in the human turn and the answer in the gpt turn. The
+  answer is stored plain, without `<think>` or `<answer>` tags; those are added at training
+  time.
 
-### Adaptive budget table
+The per-image token budget is read from the JSON file named by `ANCHOR_BUDGET_FILE`, which
+maps an image basename to the number of tokens each level should emit:
 
-`train/src/training/data.py` reads the JSON path in `ANCHOR_BUDGET_FILE`, which maps an image
-basename to its per-branch token counts, e.g. `{"xxx.png": {"det": 4, "layout": 2, "flow": 0}}`.
-When the variable is unset, or an image is not in the table, it falls back to a fixed 4/4/4.
-
-The table is derived offline from specialist signals — token count should be proportional to how
-much information that level has to express, and a level with trivial information should disappear
-entirely:
-
-- `k_det` <- number of word boxes (text amount)
-- `k_layout` <- number of layout blocks
-- `k_flow` <- number of y-coordinate back-jumps in reading order (column / region wraps)
-
-```bash
-python tool/build_dataset_cache.py --data-path <data.json> --image-folder <images/> --out <teacher_cache/>
-python tool/build_anchor_budget.py --cache-dir <teacher_cache/> --out <anchor_budget.json>
+```json
+{"receipt_00000.png": {"det": 4, "layout": 2, "flow": 0}}
 ```
 
-`build_dataset_cache.py` stores the *raw* teacher material (features, boxes, word order), not the
-finished targets, so the bucketing thresholds in `build_anchor_budget.py` can be retuned without
-re-running the teachers. On a cache miss the code falls back to online teacher inference.
+When the variable is unset, or an image is absent from the table, every level falls back to a
+fixed 4/4/4. Setting `ANCHOR_INDEXED_TOKENS=1` switches a level from repeating one pad token
+`k` times to distinct per-slot tokens `<|det_1|>…<|det_8|>`, which makes the count explicit
+rather than something the model has to track implicitly.
 
-### Indexed slot tokens
+## Quickstart
 
-By default a branch emits the same pad token `k` times. Setting `ANCHOR_INDEXED_TOKENS=1` switches
-to distinct per-slot tokens `<|det_1|>...<|det_8|>`. Repeating one token forces the model to count
-implicitly, which transformers are poor at; distinct slots make "how many to emit" explicit state
-and let slots specialize semantically.
-
-## Training
+### 1. Structure Alignment SFT
 
 ```bash
-# Structure Alignment SFT, then merge LoRA
+# trains, then merges the LoRA adapter into <run_dir>/lora_merged
 bash train/scripts/run_sft.sh
+```
 
-# Budget Allocation GRPO, starting from the merged SFT checkpoint
+Useful flags: `--stage_1_steps` (length of the initial alignment phase, in optimizer steps)
+and `--visual_weight_start` / `--visual_weight_end` / `--linear_visual_weight_decay`, which
+schedule `λ(t)`, the weight of `L_str`.
+
+### 2. Budget Allocation GRPO
+
+```bash
 SFT_MODEL=<run_dir>/lora_merged bash train/scripts/run_rl.sh
 ```
 
-Both scripts read `BASE_DIR`, `MODEL_ID`, `DATASET_DIR` and the specialist paths from the
-environment; defaults point at a local layout, so override them for your machine.
+`--w_token` is `λ₃` and `--w_align` is `λ₄`. They pull in opposite directions, and their
+equilibrium is the budget an image actually needs: with `--w_token` alone the optimal policy
+is to emit nothing and the budget collapses to zero.
 
-Key knobs (see `train/src/training/params.py`):
+### 3. Evaluation
 
-- `--stage_1_steps` — length of the initial alignment phase, in optimizer steps.
-- `--visual_weight_start` / `--visual_weight_end` / `--linear_visual_weight_decay` — the
-  schedule for `lambda(t)`, the weight of `L_str` in `L_SFT`. It starts high and decays linearly,
-  shifting emphasis from structural grounding to language generation.
-- `--prefix_supervision`, `--charge_absent_branches` — stronger structural supervision
-  (off by default; older checkpoints keep their original behaviour).
-
-GRPO knobs (see `train/src/training/train_rl.py`):
-
-- `--w_token` is `lambda_3` and `--w_align` is `lambda_4`, the weights of `R_bud` and `R_align`.
-  They pull in opposite directions; their equilibrium is the budget an image actually needs. With
-  `--w_token` alone the optimal policy is to emit nothing, and the budget collapses to zero.
-- `--w_cot_fmt` — `lambda_2`, the grammar reward for the structural sequence (label order, token
-  placement, per-level capacity).
-- `--charge_absent_branches` must be on when `--w_align > 0`, otherwise omitting a branch costs
-  nothing and `R_align` no longer reflects the reconstruction error described above.
-
-## Evaluation
-
-`eval/` contains both the metric implementations and end-to-end inference scripts.
-
-Metrics read a predictions file and a ground-truth file and write `evaluation_results.json`:
+Metrics read a predictions file and a ground-truth file:
 
 ```bash
 python eval/eval_cord.py --output_file <predictions.json> --test_data <cord_test.json>
 ```
 
-Inference + metric, one script per benchmark (CORD / FUNSD / POIE / SROIE / DocVQA / InfoVQA /
-VisualMRC). These scripts take their paths from environment variables:
+End-to-end inference plus metric, one script per benchmark:
 
 ```bash
 EVAL_MODEL_PATH=<merged_checkpoint> \
@@ -232,45 +158,91 @@ EVAL_OUTPUT_BASE=<result_dir> \
 python eval/run_cord_doc_covt.py
 ```
 
-## Demo
+### 4. Demo
 
 ```bash
 MODEL_PATH=<merged_checkpoint> python gradio/demo.py
 ```
 
-## Notes on the environment
+## Verifying the Forward Pass
 
-The code targets `Qwen3VLForConditionalGeneration` and PyTorch 2.5.x. A few compatibility shims
-are deliberate, not bugs:
+`train/scripts/check_forward.py` loads the backbone, injects the three structural-token
+anchors, runs a forward pass that includes all three branch reconstruction losses,
+backpropagates, and generates. It asserts that the total loss and the reconstruction loss are
+finite and that a finite gradient reaches every branch projection head, so run it before
+adapting the code to a new backbone:
 
-- `train.py` disables `check_torch_load_is_safe`. torch 2.5.1 fails this check behind newer
-  transformers, and it only ever reloads our own resume checkpoints.
-- `anchor_teachers.py` patches two `huggingface_hub` symbols removed in 1.x before importing
-  `doctr`, which touches them only in its push-to-hub path.
-- `covt_qwen3_vl.py::_init_weights` explicitly initializes `nn.MultiheadAttention` and the raw
-  query-bank parameters: transformers loads on a meta device, so the defaults set in `__init__`
-  are discarded and the base `_init_weights` does not recognize these modules, leaving
-  uninitialized memory (occasionally NaN).
-- `_gather_anchor_hidden` right-pads each sample's anchor hidden states to the batch maximum and
-  returns a `key_padding_mask`, because under adaptive budgets every sample emits a different
-  number of tokens.
+```bash
+MODEL_ID=Qwen/Qwen3-VL-8B-Instruct TEST_IMAGE=/path/to/doc.png \
+    python train/scripts/check_forward.py
+```
+
+Add `--fwd-only` to skip the backward pass and generation on a small GPU.
+
+## Repository Layout
+
+```
+train/src/training/
+├── covt_qwen3_vl.py       model wrapper: structural-token readout and anchor losses
+├── anchor_teachers.py     specialists (docTR DBNet, DocLayout-YOLO, LayoutReader) + L_str
+├── data.py                item preprocessing, adaptive <think> block, budget lookup
+├── constants.py           special tokens, indexed slots, chat markers
+├── rl_reward.py           R_acc / R_fmt / R_bud / R_align
+├── rl_trainer.py          GRPO loop (sampling, group-relative advantage, KL)
+├── train.py               SFT entry point
+├── train_rl.py            GRPO entry point
+├── trainer.py             trainer + step-sync / unfreeze callbacks
+└── params.py              model, data and training arguments
+train/src/                 merge_lora_weights.py, utils.py
+train/scripts/             run_sft.sh, run_rl.sh, check_forward.py, zero2.json
+eval/                      per-benchmark inference scripts and metrics
+tool/                      budget cache construction and budget table generation
+gradio/demo.py             interactive demo
+```
+
+## Main Results
+
+Accuracy (%) against OCR-free methods. Doc-SCoT uses the same Qwen3-VL-8B initialization as
+its base row.
+
+| Benchmark | Metric | Qwen3-VL | Doc-SCoT |
+|---|---|---|---|
+| DocVQA | Acc | 74.2 | **83.9** |
+| InfographicVQA | Acc | 59.9 | **69.8** |
+| FUNSD | Acc | 69.8 | **73.4** |
+| SROIE | Acc | 91.1 | **94.7** |
+| POIE | Acc | 82.8 | **85.4** |
+
+Against OCR-based methods, which receive ground-truth OCR text and coordinates:
+
+| Benchmark | Metric | DocLayLLM | Doc-SCoT |
+|---|---|---|---|
+| DocVQA | ANLS | 72.8 | **91.7** |
+| VisualMRC | CIDEr | 310.6 | **356.6** |
+| FUNSD | F1 | **80.7** | 77.5 |
+| CORD | F1 | 79.4 | **96.3** |
+| SROIE | F1 | 84.4 | **95.7** |
+
+Two observations: the advantage is not uniform — DocLayLLM stays ahead on FUNSD, where its
+ground-truth OCR input is most helpful — and Doc-SCoT remains competitive without any OCR
+text or coordinates, which is consistent with the structural tokens recovering layout
+information that such input alone does not provide.
 
 ## Citation
 
-The paper is currently under review. Until it appears, please cite the manuscript as:
-
 ```bibtex
-@misc{qian2027docscot,
-  title={Doc-SCoT: Adaptive Hierarchical Structural Tokens for Document Image Understanding},
-  author={Qian, Wentao and Zheng, Xiaohan and Zhuang, Liansheng},
-  year={2027},
-  note={Manuscript under review}
+@misc{docscot,
+  title  = {Doc-SCoT: Adaptive Hierarchical Structural Tokens for
+            Document Image Understanding},
+  author = {Qian, Wentao and Zheng, Xiaohan and Zhuang, Liansheng},
+  note   = {Manuscript under review},
+  year   = {2027}
 }
 ```
 
-This entry will be replaced with the final venue once the paper is published.
-
 ## License
 
-Apache-2.0. Third-party components (Qwen3-VL, DBNet/doctr, DocLayout-YOLO, LayoutReader) remain
-under their own licenses.
+Released under the Apache License 2.0 — see [LICENSE](LICENSE).
+
+The datasets are not redistributed. Third-party components (Qwen3-VL, docTR DBNet,
+DocLayout-YOLO, LayoutReader) remain under their own licenses.
