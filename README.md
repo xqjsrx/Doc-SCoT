@@ -11,33 +11,33 @@ with autoregressive reasoning.
 
 ![Framework](assets/framework.png)
 
-Given a document image and a question, Doc-SCoT
+Doc-SCoT comprises three parts:
 
-1. **Hierarchical Structural Token Grounding** — detection tokens encode local text
-   boundaries, layout tokens represent regional elements and their organization, and
-   reading-flow tokens capture sequential relations among regions. A bank of `m = 4`
-   learnable queries reads each branch's variable-length hidden states into fixed-size
-   readout vectors `Z_s = MHA(Q_s, H̄_s, H̄_s)`, which act as dynamic kernels over the
-   branch's frozen specialist feature map,
-   `M̂_s = σ((1/m) Σ_r ρ_s(z_{s,r} F_s))`. Specialists: docTR DBNet supervised by MSE on its
-   probability map, DocLayout-YOLO by MSE + L1 on its semantic raster, and LayoutReader by
+1. **Structural token grounding** — detection tokens encode local text boundaries, layout tokens
+   represent regional elements and their organization, and reading-flow tokens capture sequential
+   relations among regions. A bank of `m = 4` learnable queries reads each level's
+   variable-length hidden states into fixed-size readout vectors `Z_s = MHA(Q_s, H̄_s, H̄_s)`,
+   which act as dynamic kernels over the frozen specialist feature map,
+   `M̂_s = σ((1/m) Σ_r ρ_s(z_{s,r} F_s))`. The specialists are docTR DBNet, supervised by MSE on
+   its probability map; DocLayout-YOLO, by MSE + L1 on its semantic raster; and LayoutReader, by
    pairwise ranking plus a region-mask loss;
-2. **Structure Alignment SFT** — grounds these tokens by reconstructing the specialists'
-   dense signals, `L_SFT = L_CE + λ(t)·L_str` with `λ(t)` decaying linearly so the emphasis
-   shifts from structural grounding to language generation. Each level takes `k ∈ {0,2,4,6}`
-   tokens derived per image from its own signal size — detected words, layout blocks,
-   vertical reading-order wraps — and a level whose signal is trivial is omitted entirely
-   (`k = 0`); the total is capped at 18;
+2. **Structure Alignment SFT** — grounds the tokens by reconstructing the specialists' dense
+   signals, `L_SFT = L_CE + λ(t)·L_str` with `λ(t)` decaying linearly so the emphasis shifts from
+   structural grounding to language generation. Each level takes `k ∈ {0,2,4,6}` tokens derived
+   per image from its own signal size — detected words, layout blocks, vertical reading-order
+   wraps — and a level whose signal is trivial is omitted entirely (`k = 0`); the total is capped
+   at 18;
 3. **Budget Allocation GRPO** — starting from the SFT model with the forced structural prefix
    removed, optimizes `R = λ₁R_acc + λ₂R_fmt + λ₃R_bud + λ₄R_align` under the group-relative
-   advantage, so the model learns *when* each level is useful and *how much capacity* it
-   needs. `R_bud = -N_vis/N_cap` penalizes unnecessary tokens, while `R_align = -L_str`
-   prevents suppressing structurally necessary branches, since an omitted branch is still
-   decoded from its query prior and incurs the reconstruction error.
+   advantage, so the model learns *when* each level is useful and *how much capacity* it needs.
+   `R_bud = -N_vis/N_cap` penalizes unnecessary tokens, while `R_align = -L_str` prevents
+   suppressing structurally necessary branches, since an omitted branch is still decoded from its
+   query prior and incurs the reconstruction error.
 
-The result: on seven document VQA and VIE benchmarks, Doc-SCoT improves over its Qwen3-VL
-backbone and outperforms both OCR-free and OCR-based methods, while no specialist is needed
-at inference.
+At inference no specialist is needed: given a document image and a question, the model generates
+its own structural tokens to understand the image and answer the question. The result: on seven
+document VQA and VIE benchmarks, Doc-SCoT improves over its Qwen3-VL backbone and outperforms
+both OCR-free and OCR-based methods.
 
 ## Installation
 
