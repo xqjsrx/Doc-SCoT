@@ -208,8 +208,7 @@ gradio/demo.py             interactive demo
 
 ## Main Results
 
-Accuracy (%) against OCR-free methods. Doc-SCoT uses the same Qwen3-VL-8B initialization as
-its base row.
+Against OCR-free methods. Doc-SCoT uses the same Qwen3-VL-8B initialization as its base row.
 
 | Benchmark | Metric | Qwen3-VL | Doc-SCoT |
 |---|---|---|---|
