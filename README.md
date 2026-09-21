@@ -1,6 +1,9 @@
 # Doc-SCoT: Adaptive Hierarchical Structural Tokens for Document Image Understanding
 
-Official implementation of **Doc-SCoT**. Document image understanding requires modeling
+> **Status:** manuscript under review. This repository is released to accompany the
+> submission; benchmark numbers will be updated once the paper is public.
+
+Implementation of **Doc-SCoT**. Document image understanding requires modeling
 structure at multiple levels — local text boundaries, regional layout, and global reading flow.
 Existing VLMs encode these implicitly, or serialize them into discrete text and coordinates,
 which degrades structural information and applies the *same* computation to every document
@@ -179,14 +182,18 @@ are deliberate, not bugs:
 
 ## Citation
 
+The paper is currently under review. Until it appears, please cite the manuscript as:
+
 ```bibtex
-@inproceedings{qian2027docscot,
+@misc{qian2027docscot,
   title={Doc-SCoT: Adaptive Hierarchical Structural Tokens for Document Image Understanding},
   author={Qian, Wentao and Zheng, Xiaohan and Zhuang, Liansheng},
-  booktitle={ICASSP},
-  year={2027}
+  year={2027},
+  note={Manuscript under review}
 }
 ```
+
+This entry will be replaced with the final venue once the paper is published.
 
 ## License
 
