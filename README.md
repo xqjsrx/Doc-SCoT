@@ -1,7 +1,6 @@
 # Doc-SCoT: Adaptive Hierarchical Structural Tokens for Document Image Understanding
 
-> **Status:** manuscript under review. This repository is released to accompany the
-> submission; benchmark numbers will be updated once the paper is public.
+> **Status:** Manuscript under review.
 
 Implementation of **Doc-SCoT**. Document image understanding requires modeling
 structure at multiple levels — local text boundaries, regional layout, and global reading flow.
