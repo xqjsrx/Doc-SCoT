@@ -490,7 +490,7 @@ def main():
         flow_token_idx=flow_id      # <--- 注入
     )
     
-    print("模型加载完成，Doc-CoVT 机制已激活。")
+    print("模型加载完成，Doc-SCoT 机制已激活。")
 
     # 加载CORD测试数据
     cord_data = load_cord_test_data(cord_test_data_path)

@@ -360,7 +360,7 @@ def main():
         flow_token_idx=flow_id
     )
     
-    print("模型加载完成，Doc-CoVT 机制已激活。")
+    print("模型加载完成，Doc-SCoT 机制已激活。")
 
     sroie_data = load_sroie_test_data(sroie_test_data_path)
     

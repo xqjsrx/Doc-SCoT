@@ -20,7 +20,7 @@ import random
 from .params import DataArguments
 from .constants import *
 
-# === 新增：Doc-CoVT 专用模板与指令 ===
+# === 新增：Doc-SCoT 专用模板与指令 ===
 
 # 注：CoT 由 build_doc_cot 按自适应预算动态拼接（见下方 DOC_COT_STEPS）。
 # 不再使用带 Step 1/2/3 编号的固定模板——det/layout/flow 是并列的感知通道，
@@ -152,7 +152,7 @@ def get_video_info(video_path, min_pixels, max_pixels, fps):
     _, video_input, video_kwargs = process_vision_info(messages, return_video_kwargs=True)
     return video_input[0], video_kwargs
 
-# === Doc-CoVT 核心数据构造函数 ===
+# === Doc-SCoT 核心数据构造函数 ===
 
 def get_stage1_data(user_input_content, user_role, gpt_role, image_file=None):
     """
@@ -383,7 +383,7 @@ class SupervisedDataset(Dataset):
             user_input = sources[j]
             gpt_response = sources[j + 1]
             
-            # === 核心逻辑修改：Doc-CoVT 阶段控制 ===
+            # === 核心逻辑修改：Doc-SCoT 阶段控制 ===
             
             # 只有当包含图片时，才触发视觉思维链
             if DEFAULT_IMAGE_TOKEN in user_input['content']:

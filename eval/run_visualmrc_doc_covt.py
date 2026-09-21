@@ -343,7 +343,7 @@ def main():
         flow_token_idx=flow_id      # <--- 注入
     )
     
-    print("模型加载完成，Doc-CoVT 机制已激活。")
+    print("模型加载完成，Doc-SCoT 机制已激活。")
 
     # 加载VisualMRC测试数据
     visualmrc_data = load_visualmrc_test_data(visualmrc_test_data_path)

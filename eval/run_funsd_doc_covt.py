@@ -381,7 +381,7 @@ def main():
         flow_token_idx=flow_id
     )
     
-    print("模型加载完成，Doc-CoVT 机制已激活。")
+    print("模型加载完成，Doc-SCoT 机制已激活。")
 
     # 加载FUNSD测试数据
     funsd_data = load_funsd_test_data(funsd_test_data_path)

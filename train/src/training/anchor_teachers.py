@@ -1,4 +1,4 @@
-"""Doc-CoVT teacher 侧：det/layout/flow 三分支的教师模型与对齐 loss。
+"""Doc-SCoT teacher 侧：det/layout/flow 三分支的教师模型与对齐 loss。
 
 - det:    doctr DBNet(ResNet50)，hook FPN neck 特征（解码场）+ head 概率图（GT）
 - layout: DocLayout-YOLO(DocStructBench)，neck 32x32 特征 + 语义灰度光栅 GT
@@ -309,7 +309,7 @@ class AnchorModels():
 
         # === 1. Text Detection Expert (Doctr DBNet) ===
         if "det" in self.anchor_model_id:
-            print("[Doc-CoVT] Initializing Teacher: DBNet (ResNet50) from Doctr...")
+            print("[Doc-SCoT] Initializing Teacher: DBNet (ResNet50) from Doctr...")
             try:
                 self.dbnet = db_resnet50(pretrained=True, assume_straight_pages=False).eval()
             except Exception as e:
@@ -355,7 +355,7 @@ class AnchorModels():
 
         # === 2. Layout Analysis Expert (DocLayout-YOLO) ===
         if "layout" in self.anchor_model_id or "flow" in self.anchor_model_id:
-            print("[Doc-CoVT] Initializing Teacher: DocLayout-YOLO (DocStructBench)...")
+            print("[Doc-SCoT] Initializing Teacher: DocLayout-YOLO (DocStructBench)...")
 
             try:
                 self.layout_model = YOLOv10(LAYOUT_MODEL_PATH)
@@ -396,14 +396,14 @@ class AnchorModels():
         # === 3. LayoutReader (阅读顺序预测模型) ===
         self.layoutreader = None
         if "flow" in self.anchor_model_id:
-            print("[Doc-CoVT] Initializing Teacher: LayoutReader (LayoutLMv3)...")
+            print("[Doc-SCoT] Initializing Teacher: LayoutReader (LayoutLMv3)...")
             try:
                 self.layoutreader = (
                     LayoutLMv3ForTokenClassification.from_pretrained(LAYOUTREADER_MODEL_PATH)
                     .bfloat16()
                     .eval()
                 )
-                print(f"[Doc-CoVT] LayoutReader loaded from {LAYOUTREADER_MODEL_PATH}")
+                print(f"[Doc-SCoT] LayoutReader loaded from {LAYOUTREADER_MODEL_PATH}")
             except Exception as e:
                 print(f"[Error] Failed to load LayoutReader: {e}")
                 self.layoutreader = None

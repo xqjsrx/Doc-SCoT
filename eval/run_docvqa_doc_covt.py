@@ -343,7 +343,7 @@ def main():
         flow_token_idx=flow_id      # <--- 注入
     )
     
-    print("模型加载完成，Doc-CoVT 机制已激活。")
+    print("模型加载完成，Doc-SCoT 机制已激活。")
 
     # 加载DocVQA测试数据
     docvqa_data = load_docvqa_test_data(docvqa_test_data_path)

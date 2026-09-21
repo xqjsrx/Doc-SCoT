@@ -10,7 +10,7 @@ RUN_TAG=${RUN_TAG:-sft}
 # 减少显存碎片化（可回收 reserved-but-unallocated 的残留块）
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 # PYTHONPATH 在 BASE_DIR 定义后设置
-export WANDB_PROJECT="${WANDB_PROJECT:-DocCoVT_Phase2}"
+export WANDB_PROJECT="${WANDB_PROJECT:-DocSCoT_Phase2}"
 export WANDB_MODE=offline
 
 # === 基础路径 ===

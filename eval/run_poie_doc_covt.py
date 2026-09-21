@@ -409,7 +409,7 @@ def main():
         flow_token_idx=flow_id
     )
     
-    print("模型加载完成，Doc-CoVT 机制已激活。")
+    print("模型加载完成，Doc-SCoT 机制已激活。")
 
     # 加载POIE测试数据
     poie_data = load_poie_test_data(poie_test_data_path)
