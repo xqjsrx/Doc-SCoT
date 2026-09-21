@@ -39,6 +39,21 @@ its own structural tokens to understand the image and answer the question. The r
 document VQA and VIE benchmarks, Doc-SCoT improves over its Qwen3-VL backbone and outperforms
 both OCR-free and OCR-based methods.
 
+The structural tokens and the answer come out in one autoregressive stream, so the allocation the
+model chose is visible in the output. For a receipt with a simple layout:
+
+```
+<think>
+Text regions: <|det_pad|><|det_pad|><|det_pad|><|det_pad|>
+Layout structure: <|layout_pad|><|layout_pad|>
+</think>
+<answer> 12.50 </answer>
+```
+
+Detection takes four tokens and layout two, while reading flow is absent (`k = 0`) because the
+page has no vertical wrap. Each token is a continuous vector rather than a discrete word, and
+decoding them reconstructs the detection, layout and reading-flow maps.
+
 ## Installation
 
 ```bash
@@ -184,35 +199,6 @@ python eval/run_cord_doc_covt.py
 ```bash
 MODEL_PATH=<merged_checkpoint> python gradio/demo.py
 ```
-
-## Example Output
-
-Each level contributes as many tokens as its budget allows, and a level whose budget is zero is
-skipped entirely, so the generated sequence exposes the allocation the model chose for that page.
-For a receipt whose layout is simple:
-
-```
-<think>
-Text regions: <|det_pad|><|det_pad|><|det_pad|><|det_pad|>
-Layout structure: <|layout_pad|><|layout_pad|>
-</think>
-<answer> 12.50 </answer>
-```
-
-Detection takes four tokens and layout two, while reading flow is absent (`k = 0`) because the
-page has no vertical wrap. With `ANCHOR_INDEXED_TOKENS=1` the repeated pads become distinct
-slots, so the count is explicit rather than something the model tracks implicitly:
-
-```
-<think>
-Text regions: <|det_1|><|det_2|><|det_3|><|det_4|>
-Layout structure: <|layout_1|><|layout_2|>
-</think>
-<answer> 12.50 </answer>
-```
-
-Every structural token is a continuous vector rather than a discrete word, and decoding them
-reconstructs the detection, layout and reading-flow maps.
 
 ## Repository Layout
 
