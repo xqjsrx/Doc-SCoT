@@ -219,7 +219,7 @@ its base row.
 | SROIE | Acc | 91.1 | **94.7** |
 | POIE | Acc | 82.8 | **85.4** |
 
-Against OCR-based methods, which receive ground-truth OCR text and coordinates:
+Against OCR-based methods, which receive OCR text and coordinates:
 
 | Benchmark | Metric | DocLayLLM | Doc-SCoT |
 |---|---|---|---|
